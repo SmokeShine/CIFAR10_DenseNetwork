@@ -4,26 +4,23 @@ import torch.nn as nn
 
 class Vanilla_Dense(nn.Module):
     def __init__(self, input_dim, hidden_size, num_classes):
+        """
+        :param input_dim: input feature dimension
+        :param hidden_size: hidden dimension
+        :param num_classes: total number of classes
+        """
         super(Vanilla_Dense, self).__init__()
-        self.num_outputs = num_outputs
-
-        self.dense1 = nn.Linear(in_features=input_dim, out_features=hidden_size)
-        self.dense2 = nn.Linear(in_features=hidden_size, out_features=hidden_size)
-        self.dense3 = nn.Linear(in_features=hidden_size, out_features=hidden_size)
-        self.dense3 = nn.Linear(in_features=hidden_size, out_features=num_classes)
-
-        self.relu = nn.ReLU()
-
+        self.first_hidden = nn.Linear(in_features=input_dim, out_features=hidden_size)
         self.sigmoid = nn.Sigmoid()
+        self.FullyConnectedOutput = nn.Linear(
+            in_features=hidden_size, out_features=num_classes
+        )
 
-    def forward(self, input):
-        dense1 = self.dense1(input)
-        dense1 = self.relu(dense1)
+    def forward(self, x):
+        out = None
+        x = x.reshape(len(x), -1)
+        x = self.first_hidden(x)
+        x = self.sigmoid(x)
+        out = self.FullyConnectedOutput(x)
+        return out
 
-        dense2 = self.dense2(dense1)
-        dense2 = self.relu(dense2)
-
-        dense3 = self.dense3(dense2)
-        output = self.sigmoid(dense3)
-
-        return output

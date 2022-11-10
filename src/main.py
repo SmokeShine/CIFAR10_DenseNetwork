@@ -7,6 +7,7 @@ import os
 import sys
 import pickle
 import torch
+import torchvision
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
@@ -14,7 +15,9 @@ from plots import plot_loss_curve
 from utils import train, evaluate, save_checkpoint
 import random
 import mymodels
-
+import datetime
+import numpy as np
+from torchvision import transforms
 from PIL import Image
 from torch.utils.data import Subset
 from torchvision.utils import save_image
@@ -42,20 +45,20 @@ def predict_model(best_model, images_file, labels_file, pixel_classes):
     pass
 
 
-def train_model(images_file, labels_file, pixel_classes, model_name="SegNet"):
+def train_model(model_name="Vanilla_Dense"):
 
     logger.info("Generating DataLoader")
+    transform = transforms.Compose([transforms.ToTensor()])
     train_dataset = torchvision.datasets.CIFAR10(
-        root="./data", train=True, download=True, transform=transform_train
+        root="./data", train=True, download=True, transform=transform
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     valid_dataset = torchvision.datasets.CIFAR10(
-        root="./data", train=False, download=True, transform=transform_test
+        root="./data", train=False, download=True, transform=transform
     )
     valid_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=100, shuffle=False, num_workers=2
+        valid_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS
     )
 
     logger.info("Training Model")
@@ -143,13 +146,13 @@ def parse_args():
         "--gpu", action="store_true", default=True, help="Use GPU for training"
     )
     parser.add_argument(
-        "--train", action="store_true", default=False, help="Train Model"
+        "--train", action="store_true", default=True, help="Train Model"
     )
     parser.add_argument(
         "--batch_size",
         nargs="?",
         type=int,
-        default=1,
+        default=32,
         help="Batch size for training the model",
     )
     parser.add_argument(
@@ -231,8 +234,8 @@ if __name__ == "__main__":
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
     if __train__:
-        logger.info("Training Segnet")
-        train_model(images_file, labels_file, pixel_classes)
+        logger.info("Training")
+        train_model()
     else:
         best_model = torch.load(PRED_MODEL)
         logger.info(f"Using {PRED_MODEL} for prediction")

@@ -36,13 +36,14 @@ def train(
 
     model.train()
     losses = AverageMeter()
-    for i, (input, target, img_name) in enumerate(data_loader):
-        input = input.to(device)
+    for i, (data, target) in enumerate(data_loader):
+        data = data.to(device)
         target = target.to(device)
         optimizer.zero_grad()
-        output = model(input)
+        output = model(data)
 
-        loss = criterion(output, torch.argmax(target, axis=1))
+        loss = criterion(output, target)
+
         assert not np.isnan(loss.item()), "Model diverged with loss = NaN"
         loss.backward()
         optimizer.step()
@@ -59,11 +60,11 @@ def evaluate(logger, model, device, data_loader, criterion, optimizer, print_fre
     losses = AverageMeter()
     model.eval()
     with torch.no_grad():
-        for i, (input, target, img_name) in enumerate(data_loader):
-            input = input.to(device)
+        for i, (data, target) in enumerate(data_loader):
+            data = data.to(device)
             target = target.to(device)
             optimizer.zero_grad()
-            output = model(input)
+            output = model(data)
             loss = criterion(output, torch.argmax(target, axis=1))
             losses.update(loss.item(), target.size(0))
             if i % print_freq == 0:
