@@ -65,7 +65,7 @@ def evaluate(logger, model, device, data_loader, criterion, optimizer, print_fre
             target = target.to(device)
             optimizer.zero_grad()
             output = model(data)
-            loss = criterion(output, torch.argmax(target, axis=1))
+            loss = criterion(output, target)
             losses.update(loss.item(), target.size(0))
             if i % print_freq == 0:
                 logger.info(
