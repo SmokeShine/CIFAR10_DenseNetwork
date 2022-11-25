@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from plots import plot_loss_curve
-from utils import train, evaluate, save_checkpoint
+from utils import train, evaluate, save_checkpoint, imshow
 import random
 import mymodels
 import datetime
@@ -35,14 +35,52 @@ logging.config.fileConfig(
 )
 
 logger = logging.getLogger(__name__)
+logging.getLogger("matplotlib.font_manager").disabled = True
 logger.debug("Debug Mode is enabled")
 
 random.seed(1)
 np.random.seed(1)
 
+# CIFAR CLASSES
+classes = (
+    "plane",
+    "car",
+    "bird",
+    "cat",
+    "deer",
+    "dog",
+    "frog",
+    "horse",
+    "ship",
+    "truck",
+)
 
-def predict_model(best_model, images_file, labels_file, pixel_classes):
-    pass
+
+def predict_model(best_model):
+    logger.info("Generating DataLoader For Prediction")
+    transform = transforms.Compose([transforms.ToTensor()])
+    global classes
+
+    pred_dataset = torchvision.datasets.CIFAR10(
+        root="./data", train=False, download=True, transform=transform
+    )
+    pred_loader = torch.utils.data.DataLoader(
+        pred_dataset, batch_size=4, shuffle=False, num_workers=2
+    )
+    # No need to calculate grad as it is forward pass only
+    best_model.eval()
+
+    with torch.no_grad():
+        dataiter = iter(pred_loader)
+        images, labels = next(dataiter)
+        # uncomment to see the blurred image
+        # imshow(torchvision.utils.make_grid(images))
+        print("GroundTruth: ", " ".join(f"{classes[labels[j]]:5s}" for j in range(4)))
+        # Model is in GPU
+        images = images.to(DEVICE)
+        output = best_model(images)
+        _, predicted = torch.max(output, 1)
+        print("Predicted: ", " ".join(f"{classes[predicted[j]]:5s}" for j in range(4)))
 
 
 def train_model(model_name="Vanilla_Dense"):
@@ -66,6 +104,9 @@ def train_model(model_name="Vanilla_Dense"):
     if model_name == "Vanilla_Dense":
         model = mymodels.Vanilla_Dense(3072, 256, 10)
         save_file = "Vanilla_Dense.pth"
+    elif model_name == "Vanilla_Dense3":
+        model = mymodels.Vanilla_Dense3(3072, 256, 128, 10)
+        save_file = "Vanilla_Dense3.pth"
     else:
         sys.exit("Model Not Available")
 
@@ -146,7 +187,10 @@ def parse_args():
         "--gpu", action="store_true", default=True, help="Use GPU for training"
     )
     parser.add_argument(
-        "--train", action="store_true", default=True, help="Train Model"
+        "--train", action="store_true", default=False, help="Train Model"
+    )
+    parser.add_argument(
+        "--model_name", action="store", default="Vanilla_Dense", help="Train Model Type"
     )
     parser.add_argument(
         "--batch_size",
@@ -224,7 +268,7 @@ if __name__ == "__main__":
     PLOT_OUTPUT_PATH = args.plot_output_path
     EPOCH_SAVE_CHECKPOINT = args.epoch_save_checkpoint
     MODEL_PATH = args.model_path
-
+    MODEL_NAME = args.model_name
     PATIENCE = args.patience
     PRED_MODEL = args.pred_model
     DEVICE = torch.device("cuda" if USE_CUDA and torch.cuda.is_available() else "cpu")
@@ -235,10 +279,10 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = False
     if __train__:
         logger.info("Training")
-        train_model()
+        train_model(model_name=MODEL_NAME)
     else:
         best_model = torch.load(PRED_MODEL)
         logger.info(f"Using {PRED_MODEL} for prediction")
         # Predict on New Images
-        # predict_model(best_model, images_file, labels_file, pixel_classes)
+        predict_model(best_model)
         logger.info("Prediction Step Complete")

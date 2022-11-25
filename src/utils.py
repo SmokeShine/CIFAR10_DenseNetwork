@@ -79,3 +79,11 @@ def save_checkpoint(logger, model, optimizer, path):
     torch.save(state, path)
     torch.save(model, "./checkpoint_model.pth", _use_new_zipfile_serialization=False)
     logger.info(f"checkpoint saved at {path}")
+
+
+def imshow(img):
+    img = img / 2 + 0.5  # unnormalize
+    # bring back to cpu from gpu
+    npimg = img.cpu().numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.show()
