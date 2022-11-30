@@ -5,6 +5,7 @@ import logging.config
 import numpy as np
 
 # from sklearn.metrics import f1_score,roc_auc_score,accuracy_score
+import torchvision.transforms as transforms
 import torch
 import matplotlib.pyplot as plt
 
@@ -87,3 +88,30 @@ def imshow(img):
     npimg = img.cpu().numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
+
+
+def get_color_transforms(logger, transformsStr):
+    tranformsList = []
+    transformsAdded = ""
+    transforms_ = [x.lower() for x in transformsStr.split(",")]
+
+    if "posterize" in transforms_:
+        tranformsList.append(transforms.RandomPosterize(bits=2))
+        transformsAdded += "posterize,"
+    if "sharpness" in transforms_:
+        tranformsList.append(transforms.RandomAdjustSharpness(sharpness_factor=2))
+        transformsAdded += "sharpness,"
+    if "contrast" in transforms_:
+        tranformsList.append(transforms.RandomAutocontrast())
+        transformsAdded += "contrast,"
+    if "equalize" in transforms_:
+        tranformsList.append(transforms.RandomEqualize())
+        transformsAdded += "equalize,"
+    if "crop" in transforms_:
+        tranformsList.append(transforms.RandomCrop(224))
+        transformsAdded += "crop,"
+    if "hflip" in transforms_:
+        tranformsList.append(transforms.RandomHorizontalFlip(p=0.5))
+        transformsAdded += "hflip,"
+    logger.info(f"transforms added - {transformsAdded}")
+    return tranformsList

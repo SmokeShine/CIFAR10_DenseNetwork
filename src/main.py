@@ -12,7 +12,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from plots import plot_loss_curve
-from utils import train, evaluate, save_checkpoint, imshow
+from utils import (
+    train,
+    evaluate,
+    save_checkpoint,
+    imshow,
+    get_color_transforms,
+)
 import random
 import mymodels
 import datetime
@@ -86,7 +92,11 @@ def predict_model(best_model):
 def train_model(model_name="Vanilla_Dense"):
 
     logger.info("Generating DataLoader")
-    transform = transforms.Compose([transforms.ToTensor()])
+    if not TRANSFORM:
+        transform = transforms.Compose([transforms.ToTensor()])
+    else:
+        transform = transforms.Compose(TRANSFORM + [transforms.ToTensor()])
+
     train_dataset = torchvision.datasets.CIFAR10(
         root="./data", train=True, download=True, transform=transform
     )
@@ -107,6 +117,9 @@ def train_model(model_name="Vanilla_Dense"):
     elif model_name == "Vanilla_Dense3":
         model = mymodels.Vanilla_Dense3(3072, 256, 128, 10)
         save_file = "Vanilla_Dense3.pth"
+    elif model_name == "AlexNet":
+        model = mymodels.AlexNet(10)
+        save_file = "AlexNet.pth"
     else:
         sys.exit("Model Not Available")
 
@@ -250,13 +263,20 @@ def parse_args():
         help="Model for prediction; Default is checkpoint_model.pth; \
                             change to ./best_model.pth for 1 sample best model",
     )
+    parser.add_argument(
+        "--transforms",
+        action="store",
+        help="Transforms to be applied to input dataset. \
+                        options (posterize,sharpness,contrast,equalize,crop,hflip). \
+                        comma-separated list of transforms.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     logger.info(args)
-    global BATCH_SIZE, USE_CUDA, NUM_EPOCHS, NUM_WORKERS, LEARNING_RATE, SGD_MOMENTUM, DEVICE, PATIENCE, PRED_MODEL
+    global BATCH_SIZE, USE_CUDA, NUM_EPOCHS, NUM_WORKERS, LEARNING_RATE, SGD_MOMENTUM, DEVICE, PATIENCE, PRED_MODEL, TRANSFORM
     __train__ = args.train
     BATCH_SIZE = args.batch_size
     USE_CUDA = args.gpu
@@ -272,6 +292,7 @@ if __name__ == "__main__":
     PATIENCE = args.patience
     PRED_MODEL = args.pred_model
     DEVICE = torch.device("cuda" if USE_CUDA and torch.cuda.is_available() else "cpu")
+    TRANSFORM = get_color_transforms(logger, str(args.transforms))
 
     if DEVICE.type == "cuda":
         logger.info("Settings for Cuda")
