@@ -225,7 +225,102 @@ class ResNet(nn.Module):
         :param hidden_size: hidden dimension
         :param num_classes: total number of classes
         """
-        super(AlexNet, self).__init__()
+        # https://production-media.paperswithcode.com/methods/Screen_Shot_2020-09-25_at_10.26.40_AM_SAB79fQ.png
+
+        ################ Notes ################
+        # Deep networks naturally integrate low/mid/high-level features [50] and
+        # classifiers in an end-to-end multi-layer fashion, and the “levels” of features can be enriched by the number of stacked layers (depth)
+
+        # notorious problem of vanishing/exploding gradients largely addressed by normalized initialization and intermediate normalization layers
+
+        # When deeper networks are able to start converging,
+        # a degradation problem has been exposed: with the network depth increasing,
+        # accuracy gets saturated (which might be unsurprising) and then degrades rapidly.
+
+        # such degradation is not caused by overfitting,
+        # and adding more layers to a suitably deep model leads to higher training error,
+
+        # we explicitly let these layers fit a residual mapping.
+        # We hypothesize that it is easier to optimize the residual mapping than to optimize the original, unreferenced mapping.
+
+        # the shortcut connections simply perform identity mapping, and their outputs are added to the outputs of the stacked layers
+
+        # The degradation problem suggests that the solvers might have difficulties in approximating identity mappings by multiple nonlinear layers.
+
+        # shallow = shallow + identity.. but performance degrades for RHS (deep network), implying identity is difficult to approximate from dense layers
+
+        #  The function F(x,{Wi})
+        #  represents the residual mapping to be learned
+
+        # We can fairly compare plain/residual networks that simultaneously have the same number of parameters, depth, width, and computational cost
+        # No additional parameter and element wise multiplication only
+
+        # applicable to convolutional layers and dense.
+
+        # fewer filters and lower complexity than VGG nets
+        # 34-layer baseline has 3.6 billion FLOPs (multiply-adds), which is only 18% of VGG-19 (19.6 billion FLOPs).
+
+        # When the dimensions increase (dotted line shortcuts in Fig. 3), we consider two options:
+        # (A) The shortcut still performs identity mapping, with extra zero entries padded for increasing dimensions. This option introduces no extra parameter;
+        # (B) The projection shortcut in Eqn.(2) is used to match dimensions (done by 1 ×  1 convolutions)
+        # For both options, when the shortcuts go across feature maps of two sizes, they are performed with a stride of 2.
+
+        # scale augmentation, horizontal flip, crop, standard color augmentation
+
+        # batch normalization (BN) right after each convolution and before activation
+
+        # We use SGD with a mini-batch size of 256.
+        # The learning rate starts from 0.1 and is divided by 10 when the error plateaus, and the models are trained for up to 60×10^4 iterations
+
+        # We use a weight decay of 0.0001 and a momentum of 0.9. We do not use dropout
+
+        # average the scores at multiple scales (images are resized such that the shorter side is in  {224,256,384,480,640}).
+
+        # We evaluate both top-1 and top-5 error rates.
+
+        # optimization difficulty is unlikely to be caused by vanishing gradients. -  because batch normalization was used which ensure there is non zero variance in forward and verify manually the backward gradients
+
+        # ResNet eases the optimization by providing faster convergence at the early stage
+
+        # projection shortcuts are not essential for addressing the degradation problem
+        # if The dimensions of  x and  F are not equal, then applying linear projection to match dimension
+
+        # If the identity shortcut in Fig. 5 (right) is replaced with projection, one can show that the time complexity and model size are doubled,
+        # as the shortcut is connected to the two high-dimensional ends. So identity shortcuts lead to more efficient models for the bottleneck designs.
+
+        # We combine six models of different depth to form an ensemble - comparison with state of the art
+
+        # CIFAR10
+        # The network inputs are 32×32 images, with the per-pixel mean subtracted.
+        # The first layer is 3×3 convolutions.
+        # Then we use a stack of 6n layers with 3×3 convolutions on the
+        # feature maps of sizes {32,16,8} respectively, with 2n layers for each feature map size.
+        # The numbers of filters are {16,32,64} respectively
+        # stride of 2
+        # global average pooling
+        # 10-way fully-connected layer, and softmax.
+        # totally 6n+2 stacked weighted layers
+        # 3n shortcuts - connected to the pairs of 3×3 layers
+        # weight decay of 0.0001
+        # momentum of 0.9
+        # weight initialization ???? https://www.arxiv-vanity.com/papers/1502.01852/
+        # Batch normalization
+        # no drop out
+
+        # Augmentation - 4 pixels are padded on each side
+        # 32×32 random crop
+        # horizontal flip
+
+        # we use 0.01 to warm up the training until the training error is below 80% (about 400 iterations), and then go back to 0.1 and continue training
+
+        # ResNets have generally smaller responses than their plain counterparts. - emulating identity function
+
+        # impose regularization via deep and thin architectures by design - so no dropout or maxout as number of nodes are less
+
+        # We adopt Faster R-CNN [32] as the detection method. Here we are interested in the improvements of replacing VGG-16 [41] with ResNet-101.
+
+        ################ End of Notes ################
+        super(ResNet, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
         )
@@ -256,7 +351,17 @@ class VGGNet(nn.Module):
         :param hidden_size: hidden dimension
         :param num_classes: total number of classes
         """
-        super(AlexNet, self).__init__()
+        # https://production-media.paperswithcode.com/methods/Screen_Shot_2020-09-25_at_10.26.40_AM_SAB79fQ.png
+
+        ################ Notes ################
+
+        # The convolutional layers mostly have 3 x 3 filters
+        # and follow two simple design rules:
+        # (i) for the same output feature map size, the layers have the same number of filters;
+        # (ii) if the feature map size is halved, the number of filters is doubled so as to preserve the time complexity per layer.
+
+        ################ End of Notes ################
+        super(VGGNet, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
         )
@@ -287,7 +392,10 @@ class Inception(nn.Module):
         :param hidden_size: hidden dimension
         :param num_classes: total number of classes
         """
-        super(AlexNet, self).__init__()
+        ################ Notes ################
+
+        ################ End of Notes ################
+        super(Inception, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
         )
@@ -318,7 +426,10 @@ class Xception(nn.Module):
         :param hidden_size: hidden dimension
         :param num_classes: total number of classes
         """
-        super(AlexNet, self).__init__()
+        ################ Notes ################
+
+        ################ End of Notes ################
+        super(Xception, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
         )
@@ -349,7 +460,10 @@ class ShuffleNet(nn.Module):
         :param hidden_size: hidden dimension
         :param num_classes: total number of classes
         """
-        super(AlexNet, self).__init__()
+        ################ Notes ################
+
+        ################ End of Notes ################
+        super(ShuffleNet, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
         )
