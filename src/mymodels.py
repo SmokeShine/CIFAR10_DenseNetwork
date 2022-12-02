@@ -7,11 +7,6 @@ from torch.nn import Parameter
 
 class Vanilla_Dense(nn.Module):
     def __init__(self, input_dim, hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         super(Vanilla_Dense, self).__init__()
         self.first_hidden = nn.Linear(in_features=input_dim, out_features=hidden_size)
         self.sigmoid = nn.Sigmoid()
@@ -30,11 +25,6 @@ class Vanilla_Dense(nn.Module):
 
 class Vanilla_Dense3(nn.Module):
     def __init__(self, input_dim, first_hidden_size, second_hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         super(Vanilla_Dense3, self).__init__()
         self.first_hidden = nn.Linear(
             in_features=input_dim, out_features=first_hidden_size
@@ -62,11 +52,6 @@ class Vanilla_Dense3(nn.Module):
 # https://paperswithcode.com/method/alexnet
 class AlexNet(nn.Module):
     def __init__(self, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         super(AlexNet, self).__init__()
         # https://production-media.paperswithcode.com/methods/Screen_Shot_2020-06-22_at_6.35.45_PM.png
 
@@ -178,19 +163,19 @@ class AlexNet(nn.Module):
         self.load_initialization_weights()
 
     def load_initialization_weights(self):
-        self.conv2d_1.weight.data.normal_(mean=0.0, std=1.0)
-        self.conv2d_2.weight.data.normal_(mean=0.0, std=1.0)
-        self.conv2d_3.weight.data.normal_(mean=0.0, std=1.0)
-        self.first_fully_connected.weight.data.normal_(mean=0.0, std=1.0)
-        self.second_fully_connected.weight.data.normal_(mean=0.0, std=1.0)
-        self.FullyConnectedOutput.weight.data.normal_(mean=0.0, std=1.0)
+        self.conv2d_1.weight.data.normal_(mean=0.0, std=0.01)
+        self.conv2d_2.weight.data.normal_(mean=0.0, std=0.01)
+        self.conv2d_3.weight.data.normal_(mean=0.0, std=0.01)
+        self.first_fully_connected.weight.data.normal_(mean=0.0, std=0.01)
+        self.second_fully_connected.weight.data.normal_(mean=0.0, std=0.01)
+        self.FullyConnectedOutput.weight.data.normal_(mean=0.0, std=0.01)
 
-        self.conv2d_1.bias.data = torch.tensor(1.0)
-        self.conv2d_2.bias.data = torch.tensor(1.0)
-        self.conv2d_3.bias.data = torch.tensor(1.0)
-        self.first_fully_connected.bias.data = torch.tensor(1.0)
-        self.second_fully_connected.bias.data = torch.tensor(1.0)
-        self.FullyConnectedOutput.bias.data = torch.tensor(1.0)
+        nn.init.constant_(self.conv2d_1.bias.data, 1)
+        nn.init.constant_(self.conv2d_2.bias.data, 1)
+        nn.init.constant_(self.conv2d_3.bias.data, 1)
+        nn.init.constant_(self.first_fully_connected.bias.data, 1)
+        nn.init.constant_(self.second_fully_connected.bias.data, 1)
+        nn.init.constant_(self.FullyConnectedOutput.bias.data, 1)
 
     def forward(self, x):
         out = None
@@ -224,6 +209,7 @@ class AlexNet(nn.Module):
 
 
 class LambdaLayer(nn.Module):
+    # Convert function to pytorchs
     def __init__(self, lambd):
         super(LambdaLayer, self).__init__()
         self.lambd = lambd
@@ -239,8 +225,6 @@ def _weights_init(m):
 
 
 class ResNetBasicBlock(nn.Module):
-    expansion = 1
-
     def __init__(self, in_planes, planes, stride=1):
         super(ResNetBasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(
@@ -253,6 +237,7 @@ class ResNetBasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
+        # no shortcut for first
         if stride != 1 or in_planes != planes:
             self.shortcut = LambdaLayer(
                 lambda x: F.pad(
@@ -273,12 +258,8 @@ class ResNetBasicBlock(nn.Module):
 
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         # https://production-media.paperswithcode.com/methods/Screen_Shot_2020-09-25_at_10.26.40_AM_SAB79fQ.png
+        # https://www.arxiv-vanity.com/papers/1512.03385/
 
         ################ Notes ################
         # Deep networks naturally integrate low/mid/high-level features [50] and
@@ -393,30 +374,24 @@ class ResNet(nn.Module):
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
+            self.in_planes = planes
 
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = None
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = F.avg_pool2d(x, out.size()[3])
-        x = out.view(x.size(0), -1)
-        out = self.linear(x)
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = F.avg_pool2d(out, out.size()[3])
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
         return out
 
 
 # https://paperswithcode.com/method/vgg-16
 class VGGNet(nn.Module):
     def __init__(self, input_dim, first_hidden_size, second_hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         # https://production-media.paperswithcode.com/methods/Screen_Shot_2020-09-25_at_10.26.40_AM_SAB79fQ.png
 
         ################ Notes ################
@@ -453,11 +428,6 @@ class VGGNet(nn.Module):
 # https://paperswithcode.com/method/inception-v4
 class Inception(nn.Module):
     def __init__(self, input_dim, first_hidden_size, second_hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         ################ Notes ################
 
         ################ End of Notes ################
@@ -487,11 +457,6 @@ class Inception(nn.Module):
 # https://paperswithcode.com/method/xception
 class Xception(nn.Module):
     def __init__(self, input_dim, first_hidden_size, second_hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         ################ Notes ################
 
         ################ End of Notes ################
@@ -521,11 +486,6 @@ class Xception(nn.Module):
 # https://paperswithcode.com/paper/shufflenet-an-extremely-efficient
 class ShuffleNet(nn.Module):
     def __init__(self, input_dim, first_hidden_size, second_hidden_size, num_classes):
-        """
-        :param input_dim: input feature dimension
-        :param hidden_size: hidden dimension
-        :param num_classes: total number of classes
-        """
         ################ Notes ################
 
         ################ End of Notes ################

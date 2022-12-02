@@ -5,7 +5,6 @@ import logging
 import logging.config
 import os
 import sys
-import pickle
 import torch
 import torchvision
 import torch.nn as nn
@@ -18,6 +17,7 @@ from utils import (
     save_checkpoint,
     imshow,
     get_color_transforms,
+    model_parameters_probe,
 )
 import random
 import mymodels
@@ -63,24 +63,27 @@ classes = (
 )
 
 
-def model_parameters_probe(net):
-    total_params = 0
-
-    for x in filter(lambda p: p.requires_grad, net.parameters()):
-        total_params += np.prod(x.data.numpy().shape)
-    logger.info(f"Total number of params: {total_params}")
-    total_layers = len(
-        list(
-            filter(
-                lambda p: p.requires_grad and len(p.data.size()) > 1, net.parameters(),
-            )
-        )
-    )
-    logger.info(f"Total layers:{total_layers}")
-    logger.info(net)
-
-
-def predict_model(best_model):
+def predict_model(RUN_NUMBER):
+    if MODEL_NAME == "Vanilla_Dense":
+        model = mymodels.Vanilla_Dense(3072, 256, 10)
+        save_file = f"Vanilla_Dense_{RUN_NUMBER}.pth"
+    elif MODEL_NAME == "Vanilla_Dense3":
+        model = mymodels.Vanilla_Dense3(3072, 256, 128, 10)
+        save_file = f"Vanilla_Dense3_{RUN_NUMBER}.pth"
+    elif MODEL_NAME == "AlexNet":
+        model = mymodels.AlexNet(10)
+        save_file = f"AlexNet_{RUN_NUMBER}.pth"
+    elif MODEL_NAME == "ResNet":
+        model = mymodels.ResNet(mymodels.ResNetBasicBlock, [5, 5, 5])
+        save_file = f"ResNet_{RUN_NUMBER}.pth"
+    else:
+        sys.exit("Model Not Available")
+    try:
+        model.load_state_dict(torch.load(save_file))
+    except:
+        sys.exit(f"Model Not Available: {save_file}")
+    logger.info(f"Using {save_file} for prediction")
+    model = model.to(DEVICE)
     logger.info("Generating DataLoader For Prediction")
     transform = transforms.Compose([transforms.ToTensor()])
     global classes
@@ -92,7 +95,7 @@ def predict_model(best_model):
         pred_dataset, batch_size=4, shuffle=False, num_workers=2
     )
     # No need to calculate grad as it is forward pass only
-    best_model.eval()
+    model.eval()
 
     with torch.no_grad():
         dataiter = iter(pred_loader)
@@ -102,7 +105,7 @@ def predict_model(best_model):
         print("GroundTruth: ", " ".join(f"{classes[labels[j]]:5s}" for j in range(4)))
         # Model is in GPU
         images = images.to(DEVICE)
-        output = best_model(images)
+        output = model(images)
         _, predicted = torch.max(output, 1)
         print("Predicted: ", " ".join(f"{classes[predicted[j]]:5s}" for j in range(4)))
 
@@ -144,7 +147,7 @@ def train_model(model_name="Vanilla_Dense"):
         save_file = "ResNet.pth"
     else:
         sys.exit("Model Not Available")
-
+    best_save_file = f"{model_name}_{RUN_NUMBER}.pth"
     model_parameters_probe(model)
 
     model.to(DEVICE)
@@ -165,12 +168,10 @@ def train_model(model_name="Vanilla_Dense"):
     best_validation_loss = float("inf")
     for epoch in range(1, NUM_EPOCHS + 1):
         logger.info(f"Epoch {epoch}")
-        train_loss = train(
-            logger, model, DEVICE, train_loader, criterion, optimizer, epoch
-        )
+        train_loss = train(model, DEVICE, train_loader, criterion, optimizer, epoch)
         logger.info(f"Average Loss for epoch {epoch} is {train_loss}")
         train_loss_history.append(train_loss)
-        valid_loss = evaluate(logger, model, DEVICE, valid_loader, criterion, optimizer)
+        valid_loss = evaluate(model, DEVICE, valid_loader, criterion, optimizer)
         valid_loss_history.append(valid_loss)
         is_best = best_validation_loss > valid_loss
         logger.info(
@@ -178,9 +179,7 @@ def train_model(model_name="Vanilla_Dense"):
         )
         if epoch % EPOCH_SAVE_CHECKPOINT == 0:
             logger.info(f"Saving Checkpoint for {model_name} at epoch {epoch}")
-            save_checkpoint(
-                logger, model, optimizer, save_file + "_" + str(epoch) + ".tar"
-            )
+            save_checkpoint(model, optimizer, save_file + "_" + str(epoch) + ".tar")
 
         if is_best:
             early_stopping_counter = 0
@@ -188,7 +187,7 @@ def train_model(model_name="Vanilla_Dense"):
                 f"New Best Identified: \t Old Loss: {best_validation_loss}  vs New loss:\t{valid_loss} "
             )
             best_validation_loss = valid_loss
-            torch.save(model, "./best_model.pth", _use_new_zipfile_serialization=False)
+            torch.save(model.state_dict(), best_save_file)
         else:
             logger.info("Loss didnot improve")
             early_stopping_counter += 1
@@ -196,21 +195,20 @@ def train_model(model_name="Vanilla_Dense"):
             break
 
     # final checkpoint saved
-    save_checkpoint(logger, model, optimizer, save_file + ".tar")
+    save_checkpoint(model, optimizer, save_file + ".tar")
     # Loading Best Model
-    best_model = torch.load("./best_model.pth")
+    model.load_state_dict(torch.load(best_save_file))
 
     # plot loss curves
     logger.info(f"Plotting Charts")
     logger.info(f"Train Losses:{train_loss_history}")
     logger.info(f"Validation Losses:{valid_loss_history}")
     plot_loss_curve(
-        logger,
         model_name,
         train_loss_history,
         valid_loss_history,
         "Loss Curve",
-        f"{PLOT_OUTPUT_PATH}loss_curves.jpg",
+        f"{PLOT_OUTPUT_PATH}loss_curves_{MODEL_NAME}_{RUN_NUMBER}.jpg",
     )
     logger.info(f"Training Finished for {model_name}")
 
@@ -282,10 +280,9 @@ def parse_args():
         "--patience", nargs="?", type=int, default=3, help="Early stopping epoch count"
     )
     parser.add_argument(
-        "--pred_model",
-        default="./checkpoint_model.pth",
-        help="Model for prediction; Default is checkpoint_model.pth; \
-                            change to ./best_model.pth for 1 sample best model",
+        "--RUN_NUMBER",
+        default=None,
+        help="RUN NUMBER for prediction model; check logs for time stamp",
     )
     parser.add_argument(
         "--transforms",
@@ -298,6 +295,7 @@ def parse_args():
 
 
 if __name__ == "__main__":
+
     args = parse_args()
     logger.info(args)
     global BATCH_SIZE, USE_CUDA, NUM_EPOCHS, NUM_WORKERS, LEARNING_RATE, SGD_MOMENTUM, DEVICE, PATIENCE, PRED_MODEL, TRANSFORM
@@ -314,9 +312,8 @@ if __name__ == "__main__":
     MODEL_PATH = args.model_path
     MODEL_NAME = args.model_name
     PATIENCE = args.patience
-    PRED_MODEL = args.pred_model
     DEVICE = torch.device("cuda" if USE_CUDA and torch.cuda.is_available() else "cpu")
-    TRANSFORM = get_color_transforms(logger, str(args.transforms))
+    TRANSFORM = get_color_transforms(str(args.transforms))
 
     if DEVICE.type == "cuda":
         logger.info("Settings for Cuda")
@@ -324,10 +321,11 @@ if __name__ == "__main__":
         torch.backends.cudnn.benchmark = False
     if __train__:
         logger.info("Training")
+        RUN_NUMBER = datetime.datetime.now().strftime("%H_%M_%d_%m")
+        logger.info(RUN_NUMBER)
         train_model(model_name=MODEL_NAME)
+        logger.info(RUN_NUMBER)
     else:
-        best_model = torch.load(PRED_MODEL)
-        logger.info(f"Using {PRED_MODEL} for prediction")
-        # Predict on New Images
-        predict_model(best_model)
+        RUN_NUMBER = args.RUN_NUMBER
+        predict_model(RUN_NUMBER)
         logger.info("Prediction Step Complete")

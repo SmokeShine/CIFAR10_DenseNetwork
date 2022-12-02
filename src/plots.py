@@ -7,9 +7,11 @@ import torch
 import matplotlib.pyplot as plt
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 
 def plot_loss_curve(
-    logger, model_name, train_loss_history, valid_loss_history, title, output_path
+    model_name, train_loss_history, valid_loss_history, title, output_path
 ):
     fig, ax = plt.subplots(1, figsize=(10, 10))
     pd.Series(train_loss_history).plot(title="Loss", label="Train", ax=ax)

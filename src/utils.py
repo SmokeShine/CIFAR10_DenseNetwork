@@ -31,9 +31,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(
-    logger, model, device, data_loader, criterion, optimizer, epoch, print_freq=50
-):
+def train(model, device, data_loader, criterion, optimizer, epoch, print_freq=50):
 
     model.train()
     losses = AverageMeter()
@@ -57,7 +55,7 @@ def train(
     return losses.avg
 
 
-def evaluate(logger, model, device, data_loader, criterion, optimizer, print_freq=10):
+def evaluate(model, device, data_loader, criterion, optimizer, print_freq=10):
     losses = AverageMeter()
     model.eval()
     with torch.no_grad():
@@ -75,10 +73,10 @@ def evaluate(logger, model, device, data_loader, criterion, optimizer, print_fre
     return losses.avg
 
 
-def save_checkpoint(logger, model, optimizer, path):
+def save_checkpoint(model, optimizer, path):
     state = {"model": model.state_dict(), "optimizer": optimizer.state_dict()}
     torch.save(state, path)
-    torch.save(model, "./checkpoint_model.pth", _use_new_zipfile_serialization=False)
+    # torch.save(model, "./checkpoint_model.pth", _use_new_zipfile_serialization=False)
     logger.info(f"checkpoint saved at {path}")
 
 
@@ -90,7 +88,7 @@ def imshow(img):
     plt.show()
 
 
-def get_color_transforms(logger, transformsStr):
+def get_color_transforms(transformsStr):
     tranformsList = []
     transformsAdded = ""
     transforms_ = [x.lower() for x in transformsStr.split(",")]
@@ -115,3 +113,20 @@ def get_color_transforms(logger, transformsStr):
         transformsAdded += "hflip,"
     logger.info(f"transforms added - {transformsAdded}")
     return tranformsList
+
+
+def model_parameters_probe(net):
+    total_params = 0
+
+    for x in filter(lambda p: p.requires_grad, net.parameters()):
+        total_params += np.prod(x.data.numpy().shape)
+    logger.info(f"Total number of params: {total_params}")
+    total_layers = len(
+        list(
+            filter(
+                lambda p: p.requires_grad and len(p.data.size()) > 1, net.parameters(),
+            )
+        )
+    )
+    logger.info(f"Total layers:{total_layers}")
+    logger.info(net)
