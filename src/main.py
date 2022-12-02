@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("matplotlib.font_manager").disabled = True
 logger.debug("Debug Mode is enabled")
 
+torch.manual_seed(1)
 random.seed(1)
 np.random.seed(1)
 
@@ -60,6 +61,23 @@ classes = (
     "ship",
     "truck",
 )
+
+
+def model_parameters_probe(net):
+    total_params = 0
+
+    for x in filter(lambda p: p.requires_grad, net.parameters()):
+        total_params += np.prod(x.data.numpy().shape)
+    logger.info(f"Total number of params: {total_params}")
+    total_layers = len(
+        list(
+            filter(
+                lambda p: p.requires_grad and len(p.data.size()) > 1, net.parameters(),
+            )
+        )
+    )
+    logger.info(f"Total layers:{total_layers}")
+    logger.info(net)
 
 
 def predict_model(best_model):
@@ -120,8 +138,14 @@ def train_model(model_name="Vanilla_Dense"):
     elif model_name == "AlexNet":
         model = mymodels.AlexNet(10)
         save_file = "AlexNet.pth"
+    elif model_name == "ResNet":
+        # ResNet 32
+        model = mymodels.ResNet(mymodels.ResNetBasicBlock, [5, 5, 5])
+        save_file = "ResNet.pth"
     else:
         sys.exit("Model Not Available")
+
+    model_parameters_probe(model)
 
     model.to(DEVICE)
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=SGD_MOMENTUM)
